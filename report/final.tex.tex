@@ -1,0 +1,323 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+
+\title{\textbf{Machine Learning Assignment}\\
+\large Bayesian Inference for Motor Insurance Claim Frequencies}
+\author{\textbf{Group 4}\\
+Askhat Doschanov, Bibinur Ashirepbay, Metodi Popchevaliev}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+% ==============================================================================
+\section*{Question 1: Analytical Derivation of the Posterior Distribution}
+% ==============================================================================
+
+Assume $X_1, \dots, X_n \mid \theta \stackrel{\text{i.i.d.}}{\sim} \operatorname{Pois}(\theta)$ with unknown rate parameter $\theta > 0$, and assign a Gamma prior $\theta \sim \operatorname{Gamma}(\alpha, \beta)$ parameterized by fixed shape $\alpha > 0$ and rate $\beta > 0$.
+
+\paragraph{1. Likelihood function.}
+By conditional independence given $\theta$, the joint probability mass function of $X_{1:n} = (X_1, \dots, X_n)$ is
+\[
+p(X_{1:n} \mid \theta)
+= \prod_{i=1}^{n} \frac{\theta^{X_i} e^{-\theta}}{X_i!}
+= \frac{\theta^{\sum_{i=1}^{n} X_i} e^{-n\theta}}{\prod_{i=1}^{n} X_i!}
+\propto \theta^{\sum_{i=1}^{n} X_i} e^{-n\theta},
+\]
+where $\prod_{i=1}^{n} X_i!$ does not depend on $\theta$ and is absorbed into the normalizing constant.
+
+\paragraph{2. Prior kernel.}
+Under the shape--rate parameterization, the Gamma prior density is
+\[
+\pi(\theta)
+= \frac{\beta^\alpha}{\Gamma(\alpha)} \theta^{\alpha - 1} e^{-\beta\theta}
+\propto \theta^{\alpha - 1} e^{-\beta\theta}, \qquad \theta > 0.
+\]
+
+\paragraph{3. Posterior update via Bayes' theorem.}
+Because the marginal likelihood $p(X_{1:n}) = \int_0^\infty p(X_{1:n} \mid \theta)\,\pi(\theta)\,d\theta$ does not depend on $\theta$,
+\begin{align*}
+\pi(\theta \mid X_{1:n})
+&= \frac{p(X_{1:n} \mid \theta)\,\pi(\theta)}{p(X_{1:n})} \\
+&\propto \left(\theta^{\sum_{i=1}^{n} X_i} e^{-n\theta}\right)\left(\theta^{\alpha - 1} e^{-\beta\theta}\right) \\
+&= \theta^{\left(\alpha + \sum_{i=1}^{n} X_i\right) - 1} \exp\!\bigl(-(\beta + n)\theta\bigr), \qquad \theta > 0.
+\end{align*}
+
+\paragraph{4. Kernel recognition and exact posterior.}
+This matches the kernel $\theta^{\alpha^* - 1} e^{-\beta^*\theta}$ of a Gamma distribution with updated shape $\alpha^* = \alpha + \sum_{i=1}^{n} X_i$ and updated rate $\beta^* = \beta + n$. Restoring the normalizing constant gives
+\[
+\pi(\theta \mid X_{1:n})
+= \frac{(\beta + n)^{\alpha + \sum_{i=1}^{n} X_i}}{\Gamma\!\left(\alpha + \sum_{i=1}^{n} X_i\right)}
+  \theta^{\alpha + \sum_{i=1}^{n} X_i - 1} e^{-(\beta + n)\theta},
+\qquad
+\boxed{\theta \mid X_{1:n} \sim \operatorname{Gamma}\!\left(\alpha + \sum_{i=1}^{n} X_i,\; \beta + n\right).}
+\]
+Because prior and posterior belong to the same distributional family, the Gamma prior is conjugate to the Poisson likelihood.
+
+% ==============================================================================
+\section*{Question 2: Limiting Behavior of the Posterior Mean}
+% ==============================================================================
+
+Letting $\bar{X}_n = \frac{1}{n}\sum_{i=1}^{n} X_i$ denote the sample mean (and maximum likelihood estimator of $\theta$), the posterior mean can be written as a convex combination of the prior mean $\alpha / \beta$ and $\bar{X}_n$:
+\[
+\mathbb{E}[\theta \mid X_{1:n}]
+= \frac{\alpha + \sum_{i=1}^{n} X_i}{\beta + n}
+= \frac{\alpha + n\bar{X}_n}{\beta + n}
+= \frac{\beta}{\beta + n}\left(\frac{\alpha}{\beta}\right) + \frac{n}{\beta + n}\bar{X}_n.
+\]
+For our $n = 200$ sample with $\beta = 40$, the prior receives weight $40/240 = 16.67\%$ and the sample mean receives weight $200/240 = 83.33\%$. Taking the limit as $n \to +\infty$ with fixed $\alpha, \beta > 0$ yields
+\[
+\lim_{n \to +\infty} \frac{\beta}{\beta + n} = 0
+\qquad \text{and} \qquad
+\lim_{n \to +\infty} \frac{n}{\beta + n} = 1.
+\]
+Assuming $X_1, X_2, \dots$ are i.i.d.\ under a true rate $\theta_0 > 0$ with $\mathbb{E}[X_i] = \theta_0 < \infty$, the Strong Law of Large Numbers (SLLN) guarantees $\bar{X}_n \xrightarrow{\text{a.s.}} \theta_0$, so
+\[
+\boxed{\lim_{n \to +\infty} \mathbb{E}[\theta \mid X_{1:n}] = \theta_0.}
+\]
+
+\paragraph{Why this occurs.}
+In the Poisson--Gamma model, $\beta$ represents an effective prior sample size (pseudo-observations), whereas each observed policy adds $1$ unit of sample information to $\beta + n$. As $n \to +\infty$, the prior weight decays at rate $\mathcal{O}(n^{-1})$ so the prior is ``washed out'' by the data, while the posterior variance $\operatorname{Var}(\theta \mid X_{1:n}) = (\alpha + \sum_{i=1}^n X_i)/(\beta + n)^2 \approx \theta_0 / n \to 0$, concentrating the posterior around $\theta_0$ (the same asymptotic limit as the MLE $\bar{X}_n$).
+
+% ==============================================================================
+\section*{Question 3: Dataset and Suitability of the Poisson Model}
+% ==============================================================================
+
+In economics, finance, and actuarial risk pricing, accurate estimation of claim arrival rates is fundamental for setting pure insurance premiums, differentiating policyholder risk, and allocating solvency capital. We analyze the French Motor Third-Party Liability dataset \texttt{freMTPL2freq}, which records claim counts (\texttt{ClaimNb}) and policy attributes across French auto insurance contracts \cite{CASdatasets,HuggingFace}.
+
+To ensure comparable one-year risk exposures and homogeneous driver/vehicle profiles, we filter for policies with exposure between $0.99$ and $1.00$ year, driver age between $30$ and $60$, and vehicle age at most $10$ years. This leaves $74{,}940$ eligible policies (with pool mean $0.07538$, variance $0.08046$, and dispersion ratio $1.067$), from which we draw a reproducible random analysis sample of $n = 200$ policies (\texttt{set.seed(2026)} in R). Choosing $n = 200$ is a computational design choice that keeps the posterior moderately dispersed relative to the prior so that importance sampling with $M = 10{,}000$ prior draws maintains a high effective sample size.
+
+In the $200$-policy sample, $\sum_{i=1}^{200} X_i = 20$ claims occur: $182$ policies have $0$ claims, $16$ have $1$ claim, and $2$ have $2$ claims. The sample mean is $\hat{\theta} = \bar{x} = 0.1000$ and the sample variance is $s^2 = 0.11055$, yielding a dispersion ratio $s^2 / \bar{x} = 1.106$.
+
+\begin{table}[ht]
+\centering
+\caption{Observed and Poisson-expected frequencies for the 200-policy sample}
+\label{tab:claim_frequencies}
+\begin{tabular}{lrr}
+\toprule
+Claims per policy & Observed policies & Poisson expected policies \\
+\midrule
+0 & 182 & 180.97 \\
+1 & 16 & 18.10 \\
+2 & 2 & 0.90 \\
+$3+$ & 0 & 0.03 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.76\textwidth]{Q3_Poisson_Comparison.png}
+\caption{Observed claim counts and frequencies expected under a Poisson distribution fitted with $\hat\theta = \bar{x} = 0.10$.}
+\label{fig:poisson_comparison}
+\end{figure}
+
+\paragraph{Formal statistical tests and model limitations.}
+Two formal diagnostics confirm that the Poisson assumption is adequate for this sample:
+\begin{enumerate}
+    \item \textbf{Dispersion test:} Under equidispersion ($\operatorname{Var}(X_i) = \mathbb{E}[X_i]$), $(n - 1)s^2 / \bar{x} \stackrel{\text{approx}}{\sim} \chi^2_{n-1}$. Here $(199 \times 0.11055)/0.10 = 220.0$ against $\chi^2_{199}$ ($p = 0.147 \approx 0.15$), providing no statistically significant evidence of overdispersion.
+    \item \textbf{Chi-square goodness-of-fit test:} Pooling counts into $\{0, 1, 2+\}$ gives observed frequencies $(182, 16, 2)$ versus Poisson expected frequencies $(180.97, 18.10, 0.94)$, yielding $\chi^2 = 1.46$ with $\text{df} = 1$ and $p = 0.227 \approx 0.23$. (Because the expected count in the $2+$ cell is $0.94 < 5$, this asymptotic $p$-value should be interpreted cautiously.)
+\end{enumerate}
+Despite this satisfactory baseline fit (Table~\ref{tab:claim_frequencies} and Figure~\ref{fig:poisson_comparison}), structural limitations remain: restricting exposure to $[0.99, 1.00]$ introduces potential survivorship/selection bias by excluding policies cancelled mid-year (which may differ in claim or driver risk); residual covariate heterogeneity across bonus--malus scores, vehicle power, and region is ignored by a single homogeneous rate $\theta$; and multi-claim tail behavior is sparsely observed in $n = 200$ policies.
+
+% ==============================================================================
+\section*{Question 4: Choice of Gamma Prior}
+% ==============================================================================
+
+Under $\theta \sim \operatorname{Gamma}(\alpha, \beta)$, $\mathbb{E}[\theta] = \alpha / \beta$ and $\operatorname{SD}(\theta) = \sqrt{\alpha} / \beta$. We anchor our prior hyperparameters using two complementary justifications:
+\begin{enumerate}
+    \item \textbf{External actuarial benchmark:} In the actuarial literature on the French MTPL portfolio, Noll, Salzmann, and W\"uthrich (2020) \cite{Noll2020} report an overall portfolio exposure-weighted claim frequency of approximately $7.36\%$ ($0.074$ claims per policy-year), consistent with standard European MTPL actuarial benchmarks in the $7\%$--$8\%$ range \cite{Charpentier2014}.
+    \item \textbf{Within-portfolio reference check:} Evaluating the $74{,}740$ eligible policies in \texttt{freMTPL2freq} \emph{excluded} from our $200$-policy sample yields $5{,}629 / 74{,}740 \approx 0.07531$ claims per policy. Because these policies come from the same dataset, this serves as a secondary sanity check rather than an independent external source.
+\end{enumerate}
+
+We specify the weakly informative prior
+\[
+\boxed{\alpha = 3, \qquad \beta = 40, \qquad \theta \sim \operatorname{Gamma}(3, 40),}
+\]
+which sets $\mathbb{E}[\theta] = 3/40 = 0.075$ and $\operatorname{SD}(\theta) = \sqrt{3}/40 \approx 0.04330$ (equivalent to $3$ prior claims across $40$ policy-years). Keeping $\beta = 40$ modest relative to $n = 200$ prevents the prior from dominating the sample data. Updating with $n = 200$ and $\sum_{i=1}^{200} x_i = 20$ yields $\theta \mid x_{1:n} \sim \operatorname{Gamma}(23, 240)$ with exact posterior mean $\mathbb{E}[\theta \mid x_{1:n}] = 23/240 \approx 0.095833$, posterior $\operatorname{SD} = \sqrt{23}/240 \approx 0.01998$, and exact $95\%$ credible interval $[0.06075, 0.13878]$.
+
+% ==============================================================================
+\section*{Question 5: Importance Sampling}
+% ==============================================================================
+
+\subsection*{5(a) Importance weights and self-normalized estimator}
+
+Drawing $\theta^{(1)}, \dots, \theta^{(M)} \stackrel{\text{i.i.d.}}{\sim} q(\theta) = \pi(\theta)$, the unnormalized importance weight is the target-to-proposal density ratio:
+\[
+\tilde{w}_m
+= \frac{\pi(\theta^{(m)} \mid X_{1:n})}{q(\theta^{(m)})}
+= \frac{p(X_{1:n} \mid \theta^{(m)})\,\pi(\theta^{(m)}) / p(X_{1:n})}{\pi(\theta^{(m)})}
+= \frac{p(X_{1:n} \mid \theta^{(m)})}{p(X_{1:n})}
+\propto p(X_{1:n} \mid \theta^{(m)}).
+\]
+Normalizing $w_m = \tilde{w}_m / \sum_{j=1}^{M} \tilde{w}_j$ eliminates $p(X_{1:n})$ and gives the self-normalized estimator:
+\[
+\boxed{\widehat{\mathbb{E}[\theta \mid X_{1:n}]}_{\mathrm{IS}}
+= \sum_{m=1}^{M} w_m \theta^{(m)}
+= \frac{\sum_{m=1}^{M} \theta^{(m)} p(X_{1:n} \mid \theta^{(m)})}{\sum_{j=1}^{M} p(X_{1:n} \mid \theta^{(j)})}.}
+\]
+By the SLLN, numerator and denominator converge almost surely to $p(X_{1:n})\mathbb{E}[\theta \mid X_{1:n}]$ and $p(X_{1:n})$, respectively, so $p(X_{1:n})$ cancels and the estimator is consistent as $M \to \infty$.
+
+\subsection*{5(b) Implementation in R and comparison with analytical mean}
+
+We simulate $M = 10{,}000$ draws from $\operatorname{Gamma}(3, 40)$ in R (\texttt{set.seed(2026)}) and stabilize weight computation on the log scale by subtracting $\max_j \ell_j$ before exponentiating.
+
+\begin{table}[ht]
+\centering
+\caption{Importance-sampling results vs.\ exact $\operatorname{Gamma}(23, 240)$ posterior ($M = 10{,}000$, seed 2026)}
+\label{tab:is_results}
+\begin{tabular}{lr}
+\toprule
+Statistic & Value \\
+\midrule
+Importance-sampling posterior mean & 0.096134 \\
+Analytical posterior mean & 0.095833 \\
+Absolute difference & 0.000301 \\
+Relative difference & 0.31\% \\
+Effective sample size ($\mathrm{ESS}$) & 4,360.62 \\
+Monte Carlo standard error ($\mathrm{MCSE} \approx \mathrm{SD}/\sqrt{\mathrm{ESS}}$) & 0.000303 \\
+Importance-sampling $95\%$ credible interval (weighted quantiles) & $[0.06081,\; 0.13895]$ \\
+Exact $\operatorname{Gamma}(23, 240)$ $95\%$ credible interval & $[0.06075,\; 0.13878]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+As shown in Table~\ref{tab:is_results}, the importance-sampling mean ($0.096134$) differs from the analytical mean ($0.095833$) by $0.000301$ ($0.31\%$). Crucially, the Monte Carlo standard error is $\mathrm{MCSE} \approx \mathrm{SD}/\sqrt{\mathrm{ESS}} = 0.01998/\sqrt{4360.62} \approx 0.000303$, confirming that the observed discrepancy lies entirely within Monte Carlo sampling error. The weighted $95\%$ credible interval $[0.06081, 0.13895]$ likewise matches the exact $\operatorname{Gamma}(23, 240)$ interval $[0.06075, 0.13878]$.
+
+\subsection*{5(c) Why importance weights are necessary}
+
+\paragraph{Why unweighted averaging fails.}
+Because $\theta^{(1)}, \dots, \theta^{(M)}$ are drawn from the \emph{prior} $\pi(\theta)$ rather than the \emph{posterior} $\pi(\theta \mid X_{1:n})$, an unweighted average converges by the SLLN to the prior expectation $\mathbb{E}_{\text{prior}}[\theta] = \alpha/\beta = 0.075$, ignoring the sample likelihood. Importance weights $w_m$ reweight draws in proportion to $p(X_{1:n} \mid \theta^{(m)})$ to correct for this proposal--target mismatch.
+
+\paragraph{When an unweighted average is reasonable.}
+Unweighted averaging is accurate only when $w_m \approx 1/M$, i.e., when the likelihood is nearly flat over the prior's support so $\pi(\theta \mid X_{1:n}) \approx \pi(\theta)$: (i) when $n$ is very small/uninformative, (ii) when the prior is highly concentrated ($\beta \gg n$ with $\alpha/\beta$ fixed, so $\operatorname{Var}(\theta) = \alpha/\beta^2 \to 0$), or (iii) when prior and sample means already coincide ($\bar{X}_n \approx \alpha/\beta$) with strong prior precision. Conversely, for large $n$ and a vague prior, the unweighted average is severely biased while prior-proposal importance sampling suffers from low $\mathrm{ESS}$ and high variance.
+
+% ==============================================================================
+\section*{Question 6: Hierarchical Model and Gibbs Sampling}
+% ==============================================================================
+
+We extend the model to a three-stage hierarchical specification with unknown rate $\beta > 0$:
+\[
+X_i \mid \theta \stackrel{\text{i.i.d.}}{\sim} \operatorname{Pois}(\theta), \qquad
+\theta \mid \beta \sim \operatorname{Gamma}(\alpha, \beta), \qquad
+\beta \sim \operatorname{Gamma}(a, b),
+\]
+with $\alpha = 3$ fixed from Question~4 and fixed hyperparameters $a, b > 0$.
+
+\subsection*{6(a) Full conditional posterior distribution of $\beta$}
+
+Since $X_{1:n}$ depends only on $\theta$, $\pi(\beta \mid \theta, X_{1:n}) = \pi(\beta \mid \theta) \propto \pi(\theta \mid \beta)\,\pi(\beta)$:
+\begin{align*}
+\pi(\beta \mid \theta, X_{1:n})
+&\propto \left(\frac{\beta^\alpha}{\Gamma(\alpha)} \theta^{\alpha - 1} e^{-\beta\theta}\right)
+         \left(\frac{b^a}{\Gamma(a)} \beta^{a - 1} e^{-b\beta}\right) \\
+&\propto \beta^\alpha e^{-\beta\theta} \cdot \beta^{a - 1} e^{-b\beta}
+= \beta^{(\alpha + a) - 1} \exp\!\bigl(-(b + \theta)\beta\bigr), \qquad \beta > 0.
+\end{align*}
+Recognizing the Gamma kernel with shape $\alpha + a$ and rate $b + \theta$,
+\[
+\boxed{\beta \mid \theta, X_{1:n} \sim \operatorname{Gamma}(\alpha + a,\; b + \theta).}
+\]
+
+\subsection*{6(b) Hyperparameter selection and Gibbs sampler implementation}
+
+To center $\beta$ around Question~4's value $\mathbb{E}[\beta] = 40$ with moderate prior uncertainty ($\operatorname{SD}(\beta) = 20$), we choose
+\[
+\boxed{a = 4, \qquad b = 0.1.}
+\]
+We run $10{,}000$ Gibbs iterations (\texttt{set.seed(2026)}, initialized at $\beta^{(0)} = 40$, discarding $2{,}000$ burn-in draws), plus a second overdispersed chain initialized at $\beta^{(0)} = 5$ to verify convergence:
+\begin{enumerate}
+    \item $\theta^{(s)} \mid \beta^{(s-1)}, X_{1:n} \sim \operatorname{Gamma}(23,\; \beta^{(s-1)} + 200)$,
+    \item $\beta^{(s)} \mid \theta^{(s)}, X_{1:n} \sim \operatorname{Gamma}(7,\; 0.1 + \theta^{(s)})$.
+\end{enumerate}
+
+\subsection*{6(c) Posterior estimates, convergence diagnostics, and model comparison}
+
+\begin{table}[ht]
+\centering
+\caption{Hierarchical Gibbs posterior summary ($8{,}000$ retained draws) and convergence diagnostics}
+\label{tab:gibbs_summary}
+\begin{tabular}{lrrrrrr}
+\toprule
+Parameter & Post.\ Mean & Post.\ SD & $95\%$ Credible Interval & $\mathrm{ESS}$ & $\mathrm{MCSE}$ & $\hat{R}$ \\
+\midrule
+$\theta$ & 0.09833 & 0.02114 & $[0.06150,\; 0.14311]$ & 7,019.1 & 0.000252 & 1.0000 \\
+$\beta$  & 35.79   & 13.85   & $[14.35,\; 67.70]$     & 7,018.5 & 0.1653   & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{Q6_Gibbs_Trace_Plots.png}
+\caption{Full $10{,}000$-iteration trace plots (left) and first-$500$-iteration convergence zooms comparing chains started at $\beta^{(0)}=40$ and $\beta^{(0)}=5$ (right) for $\theta$ (top) and $\beta$ (bottom).}
+\label{fig:gibbs_traces}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{Q6_Gibbs_Diagnostics.png}
+\caption{Sample autocorrelation functions (left) and posterior histograms with prior densities overlaid (right) for post-burn-in draws of $\theta$ and $\beta$.}
+\label{fig:gibbs_diag}
+\end{figure}
+
+\paragraph{Convergence and autocorrelation diagnostics.}
+Figure~\ref{fig:gibbs_traces} shows that both chains coalesce within the first few iterations and fluctuate stably around stationary means well before the $2{,}000$-iteration burn-in cutoff, achieving a Gelman--Rubin statistic of $\hat{R} = 1.0000$ for both parameters. Figure~\ref{fig:gibbs_diag} confirms rapid autocorrelation decay within a few lags, yielding high effective sample sizes ($\mathrm{ESS} \approx 7{,}019$ out of $8{,}000$ post-burn-in draws) and small Monte Carlo standard errors ($\mathrm{MCSE}(\theta) = 0.000252$, $\mathrm{MCSE}(\beta) = 0.165$).
+
+\paragraph{Why the posterior mean shifts and comparison with the fixed-$\beta$ model.}
+The posterior mean of $\theta$ increases from $0.09583$ (fixed-$\beta$ model) to $0.09833$ (hierarchical model) for two distinct reasons:
+\begin{enumerate}
+    \item \textbf{Jensen's inequality in the hierarchical prior:} Because $f(\beta) = 1/\beta$ is strictly convex on $(0, \infty)$, Jensen's inequality implies $\mathbb{E}[1/\beta] > 1/\mathbb{E}[\beta]$. Under $\beta \sim \operatorname{Gamma}(4, 0.1)$, $\mathbb{E}[1/\beta] = b/(a - 1) = 0.1/3 = 1/30$, so the marginal prior expectation of $\theta$ is $\mathbb{E}[\theta] = \alpha\,\mathbb{E}[1/\beta] = 3 \times (0.1/3) = \mathbf{0.10}$ rather than $0.075$. Thus, the hierarchical prior already starts centered higher than the fixed-$\beta$ prior, accounting for much of the shift to $0.09833$.
+    \item \textbf{Data-driven downward update of $\beta$:} Because $\bar{x} = 0.10$ exceeds the initial prior ratio $3/40 = 0.075$, the likelihood also pulls the posterior mean of $\beta$ downward from $40$ to $35.79$.
+\end{enumerate}
+Finally, propagating uncertainty in $\beta$ increases the posterior standard deviation of $\theta$ from $0.01998$ ($\approx 0.0200$) in the fixed-$\beta$ model to $0.02114$ ($\approx 0.0211$) in the hierarchical model, widening the $95\%$ credible interval from $[0.06075, 0.13878]$ to $[0.06150, 0.14311]$.
+
+% ==============================================================================
+\section*{Sensitivity Analysis}
+% ==============================================================================
+
+To assess robustness to prior specification, Table~\ref{tab:sensitivity} compares posterior summaries across three fixed-$\beta$ priors (holding the prior mean $\alpha/\beta = 0.075$ constant while varying prior strength $\beta \in \{10, 40, 200\}$) and three hierarchical hyperparameter choices centered at $\mathbb{E}[\beta] = 40$.
+
+\begin{table}[ht]
+\centering
+\caption{Prior sensitivity analysis for $\theta$ ($n = 200$, $\sum_{i=1}^{200} X_i = 20$)}
+\label{tab:sensitivity}
+\begin{tabular}{llrrr}
+\toprule
+Model / Prior Specification & Prior $\mathbb{E}[\theta]$ & Post.\ Mean ($\theta$) & Post.\ SD ($\theta$) & $95\%$ Credible Interval \\
+\midrule
+Fixed $\operatorname{Gamma}(0.75, 10)$ (weak) & 0.075 & 0.09881 & 0.02169 & $[0.06097,\; 0.14564]$ \\
+Fixed $\operatorname{Gamma}(3.00, 40)$ (baseline) & 0.075 & 0.09583 & 0.01998 & $[0.06075,\; 0.13878]$ \\
+Fixed $\operatorname{Gamma}(15.0, 200)$ (strong) & 0.075 & 0.08750 & 0.01479 & $[0.06095,\; 0.11878]$ \\
+\midrule
+Hierarchical $(a=2, b=0.05)$ (diffuse $\beta$) & 0.150 & 0.09880 & 0.02140 & $[0.06140,\; 0.14463]$ \\
+Hierarchical $(a=4, b=0.10)$ (baseline) & 0.100 & 0.09833 & 0.02114 & $[0.06150,\; 0.14311]$ \\
+Hierarchical $(a=16, b=0.40)$ (concentrated $\beta$) & 0.080 & 0.09646 & 0.02015 & $[0.06077,\; 0.13973]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Across all weak-to-moderate priors, the posterior mean of $\theta$ remains tightly clustered between $0.0958$ and $0.0988$, demonstrating strong robustness to reasonable prior choices; only an overly dogmatic prior ($\beta = 200$, equal to the entire sample size) pulls the posterior substantially toward $0.075$.
+
+% ==============================================================================
+\begin{thebibliography}{9}
+\bibitem{CASdatasets}
+CASdatasets. \emph{French Motor Third-Party Liability datasets (freMTPL2freq)}. Dataset documentation. \url{https://dutangc.github.io/CASdatasets/reference/freMTPL.html}.
+
+\bibitem{HuggingFace}
+Mabilton. \emph{freMTPL2freq.csv}, publicly hosted dataset file and documentation. \url{https://huggingface.co/datasets/mabilton/fremtpl2}.
+
+\bibitem{Noll2020}
+Noll, A., Salzmann, R., \& W\"uthrich, M.~V. (2020). \emph{Case Study: French Motor Third-Party Liability Claims}. SSRN Working Paper 3164764. \url{https://doi.org/10.2139/ssrn.3164764}.
+
+\bibitem{Charpentier2014}
+Charpentier, A. (Ed.). (2014). \emph{Computational Actuarial Science with R}. CRC Press.
+\end{thebibliography}
+
+\end{document}
