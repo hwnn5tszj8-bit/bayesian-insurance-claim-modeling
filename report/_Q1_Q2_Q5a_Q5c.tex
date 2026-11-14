@@ -1,0 +1,98 @@
+\section*{Question 1: Analytical derivation of the posterior distribution}
+
+Assume $X_1, \dots, X_n \mid \theta \stackrel{\text{i.i.d.}}{\sim} \operatorname{Pois}(\theta)$ with unknown rate $\theta > 0$, and assign a Gamma prior $\theta \sim \operatorname{Gamma}(\alpha, \beta)$ parameterized by fixed shape $\alpha > 0$ and rate $\beta > 0$.
+
+\paragraph{Likelihood function.}
+By conditional independence of the $n$ observations, the joint probability mass function of $X_{1:n} = (X_1, \dots, X_n)$ given $\theta$ is
+\[
+p(X_{1:n} \mid \theta)
+= \prod_{i=1}^{n} \frac{\theta^{X_i} e^{-\theta}}{X_i!}
+= \frac{\theta^{\sum_{i=1}^{n} X_i} e^{-n\theta}}{\prod_{i=1}^{n} X_i!}.
+\]
+
+\paragraph{Prior density.}
+Using the shape--rate parameterization, the prior probability density function of $\theta$ is
+\[
+\pi(\theta)
+= \frac{\beta^\alpha}{\Gamma(\alpha)} \theta^{\alpha - 1} e^{-\beta\theta},
+\qquad \theta > 0.
+\]
+
+\paragraph{Posterior update via Bayes' theorem.}
+By Bayes' theorem, the posterior density $\pi(\theta \mid X_{1:n})$ is proportional to the product of the likelihood and the prior:
+\begin{align*}
+\pi(\theta \mid X_{1:n})
+&= \frac{p(X_{1:n} \mid \theta)\,\pi(\theta)}{p(X_{1:n})} \\
+&\propto p(X_{1:n} \mid \theta)\,\pi(\theta) \\
+&\propto \left(\theta^{\sum_{i=1}^{n} X_i} e^{-n\theta}\right)
+         \left(\theta^{\alpha - 1} e^{-\beta\theta}\right) \\
+&= \theta^{\left(\alpha + \sum_{i=1}^{n} X_i\right) - 1}
+   \exp\!\bigl(-(\beta + n)\theta\bigr), \qquad \theta > 0.
+\end{align*}
+Because the marginal likelihood $p(X_{1:n}) = \int_0^\infty p(X_{1:n} \mid \theta)\,\pi(\theta)\,d\theta$ does not depend on $\theta$, it acts purely as a normalizing constant. Recognizing the kernel $\theta^{\alpha^* - 1} e^{-\beta^* \theta}$ of a Gamma distribution with updated shape $\alpha^* = \alpha + \sum_{i=1}^{n} X_i$ and updated rate $\beta^* = \beta + n$, we obtain the exact conjugate posterior:
+\[
+\boxed{\theta \mid X_{1:n} \sim \operatorname{Gamma}\!\left(\alpha + \sum_{i=1}^{n} X_i,\; \beta + n\right).}
+\]
+
+\section*{Question 2: Limiting behavior of the posterior mean}
+
+For a $\operatorname{Gamma}(\alpha^*, \beta^*)$ random variable, the expectation is $\alpha^* / \beta^*$. Thus, the posterior mean is
+\[
+\mathbb{E}[\theta \mid X_{1:n}]
+= \frac{\alpha + \sum_{i=1}^{n} X_i}{\beta + n}.
+\]
+Let $\bar{X}_n = \frac{1}{n}\sum_{i=1}^{n} X_i$ denote the sample mean. Rewriting the posterior mean reveals that it is a convex combination of the prior mean $\alpha / \beta$ and the sample mean $\bar{X}_n$:
+\[
+\mathbb{E}[\theta \mid X_{1:n}]
+= \frac{\beta}{\beta + n}\left(\frac{\alpha}{\beta}\right)
++ \frac{n}{\beta + n}\bar{X}_n.
+\]
+Taking the limit as $n \to +\infty$ while keeping the fixed hyperparameters $\alpha, \beta > 0$ constant:
+\[
+\lim_{n \to +\infty} \frac{\beta}{\beta + n} = 0
+\qquad \text{and} \qquad
+\lim_{n \to +\infty} \frac{n}{\beta + n} = 1.
+\]
+Assuming the observations are generated under a true parameter value $\theta_0 > 0$, the Strong Law of Large Numbers implies $\bar{X}_n \xrightarrow{\text{a.s.}} \theta_0$ as $n \to +\infty$. Consequently,
+\[
+\boxed{\lim_{n \to +\infty} \mathbb{E}[\theta \mid X_{1:n}] = \theta_0}
+\quad \text{(equivalently, } \mathbb{E}[\theta \mid X_{1:n}] - \bar{X}_n \to 0\text{).}
+\]
+\textbf{Why this happens:} In the Poisson--Gamma conjugate model, the prior rate $\beta$ represents an effective prior sample size (pseudo-observations), while each observed policy adds $1$ unit of information to the posterior rate $\beta + n$. As $n \to +\infty$, the weight placed on the prior vanishes at rate $\mathcal{O}(n^{-1})$ and the empirical evidence from the likelihood completely dominates the fixed prior belief.
+
+\section*{Question 5(a): Importance weights and self-normalized estimator}
+
+When sampling $\theta^{(1)}, \dots, \theta^{(M)} \stackrel{\text{i.i.d.}}{\sim} q(\theta)$ using the prior as the proposal distribution, $q(\theta) = \pi(\theta)$, the standard unnormalized importance weight for draw $\theta^{(m)}$ is the ratio of the target posterior density to the proposal density:
+\[
+\tilde{w}_m
+= \frac{\pi(\theta^{(m)} \mid X_{1:n})}{q(\theta^{(m)})}
+= \frac{p(X_{1:n} \mid \theta^{(m)})\,\pi(\theta^{(m)}) / p(X_{1:n})}{\pi(\theta^{(m)})}
+= \frac{p(X_{1:n} \mid \theta^{(m)})}{p(X_{1:n})}.
+\]
+Because the marginal likelihood $p(X_{1:n})$ is constant across all draws $m = 1, \dots, M$, the prior density $\pi(\theta^{(m)})$ cancels out and the unnormalized weights are directly proportional to the likelihood:
+\[
+\boxed{\tilde{w}_m \propto p(X_{1:n} \mid \theta^{(m)}).}
+\]
+Normalizing the weights so that $w_m = \tilde{w}_m / \sum_{j=1}^{M} \tilde{w}_j$ ensures $\sum_{m=1}^{M} w_m = 1$ without requiring evaluation of $p(X_{1:n})$. The self-normalized importance sampling estimator of $\mathbb{E}[\theta \mid X_{1:n}]$ is therefore
+\[
+\boxed{\widehat{\mathbb{E}[\theta \mid X_{1:n}]}_{\mathrm{IS}}
+= \sum_{m=1}^{M} w_m \theta^{(m)}
+= \frac{\sum_{m=1}^{M} p(X_{1:n} \mid \theta^{(m)})\,\theta^{(m)}}{\sum_{j=1}^{M} p(X_{1:n} \mid \theta^{(j)})}.}
+\]
+
+\section*{Question 5(c): Necessity of importance weights}
+
+\paragraph{Why unweighted draws cannot simply be averaged.}
+The simulated values $\theta^{(1)}, \dots, \theta^{(M)}$ are drawn from the \emph{prior} $\pi(\theta)$, not from the \emph{posterior} $\pi(\theta \mid X_{1:n})$. By the Law of Large Numbers, an unweighted sample average converges to the prior expectation:
+\[
+\frac{1}{M}\sum_{m=1}^{M} \theta^{(m)} \xrightarrow{M \to \infty} \mathbb{E}[\theta] = \frac{\alpha}{\beta} = 0.075,
+\]
+which completely ignores the observed dataset $X_{1:n}$ (whose analytical posterior mean is $0.095833$). The importance weights $w_m$ correct for this mismatch by up-weighting prior draws that align closely with the observed likelihood and down-weighting draws that do not.
+
+\paragraph{When an unweighted average provides a reasonable approximation.}
+An unweighted average approximates the posterior mean accurately only when the prior $\pi(\theta)$ and posterior $\pi(\theta \mid X_{1:n})$ are nearly identical, causing all normalized weights to be approximately equal ($w_m \approx 1/M$). This occurs in three situations:
+\begin{enumerate}
+    \item \textbf{Uninformative or tiny sample ($n$ very small):} When very few observations are available, the likelihood is nearly flat relative to the prior, so $\pi(\theta \mid X_{1:n}) \approx \pi(\theta)$.
+    \item \textbf{Highly concentrated prior ($\beta \gg n$):} When the prior carries far more precision than the sample, the data barely shifts the distribution.
+    \item \textbf{Prior--data agreement ($\bar{X}_n \approx \alpha/\beta$) with strong prior precision:} When the sample mean coincides with the prior mean and the prior variance is already small, the posterior center and spread remain close to the prior.
+\end{enumerate}
