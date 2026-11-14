@@ -1,0 +1,118 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+
+\title{Machine Learning Assignment\\\large Questions 3, 4 and 5(b)}
+\author{Group [number]\\[2pt] [Group members' names]}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Question 3: Dataset and suitability of the Poisson model}
+
+We use the French Motor Third-Party Liability dataset \texttt{freMTPL2freq}, which records the number of insurance claims associated with individual motor insurance policies and relevant policyholder and vehicle characteristics \cite{CASdatasets,HuggingFace}. Our variable of interest, \texttt{ClaimNb}, is a nonnegative integer indicating the number of claims observed for a policy during its exposure period. This is an example of count data relevant to insurance pricing and risk management.
+
+To make the observations more comparable, we retain policies with exposure between 0.99 and 1 year, driver age between 30 and 60 years, and vehicle age no greater than 10 years. This leaves 74,940 eligible policies. We then select a reproducible random sample of 200 policies, using \texttt{set.seed(2026)} in R. A relatively small analysis sample also keeps the posterior sufficiently dispersed for the assignment's importance-sampling exercise using 10,000 prior draws.
+
+The 200 policies have 20 claims in total: 182 have zero claims, 16 have one claim and two have two claims. The observed mean is $\bar{x}=0.1000$ claims per policy, and the sample variance is $s^2=0.11055$. Thus, the dispersion ratio is $s^2/\bar{x}\approx1.106$, reasonably close to the Poisson benchmark of one.
+
+\begin{table}[ht]
+\centering
+\caption{Observed and Poisson-expected frequencies for the 200-policy sample}
+\label{tab:claim_frequencies}
+\begin{tabular}{lrr}
+\toprule
+Claims per policy & Observed policies & Poisson expected policies \\
+\midrule
+0 & 182 & 180.97 \\
+1 & 16 & 18.10 \\
+2 & 2 & 0.90 \\
+$3+$ & 0 & 0.03 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.80\textwidth]{Q3_Poisson_Comparison.png}
+\caption{Observed claim counts and frequencies expected under a Poisson distribution fitted with $\hat\theta=\bar{x}=0.1$.}
+\label{fig:poisson_comparison}
+\end{figure}
+
+A Poisson model is a reasonable first approximation because claims are counts occurring during nearly equal exposure periods and the sample mean and variance are similar. Figure~\ref{fig:poisson_comparison} and Table~\ref{tab:claim_frequencies} also show broadly similar observed and expected frequencies. Nevertheless, these checks are not proof of model fit: very few policies have multiple claims, so the upper tail is difficult to assess. Moreover, claim risk may differ by driving behaviour, vehicle characteristics or location, even after filtering, and claims may not be fully independent. The model assumes one common and constant $\theta$ for all selected policies; a more detailed actuarial model could account for policy-specific risks and exact exposure durations. We therefore treat the Poisson model as a useful simplification rather than a perfect description of the data.
+
+\section*{Question 4: Choice of Gamma prior}
+
+We use the shape--rate parameterization of the Gamma distribution,
+\[
+\theta\sim\operatorname{Gamma}(\alpha,\beta), \qquad
+\mathbb{E}[\theta]=\frac{\alpha}{\beta}, \qquad
+\operatorname{SD}(\theta)=\frac{\sqrt{\alpha}}{\beta}.
+\]
+The prior is informed by the 74,740 eligible policies \emph{excluded} from the 200-policy analysis sample. Those reference policies record 5,629 claims, giving a mean of $5{,}629/74{,}740\approx0.07531$ claims per policy. The source and definitions of these observations are documented in the \texttt{freMTPL2freq} dataset \cite{CASdatasets,HuggingFace}.
+
+We choose
+\[
+\boxed{\alpha=3,\qquad\beta=40,\qquad
+\theta\sim\operatorname{Gamma}(3,40).}
+\]
+The implied prior mean is $3/40=0.075$, close to the reference-sample mean, while its standard deviation is $\sqrt{3}/40\approx0.04330$. We deliberately use a relatively weak prior: in the Poisson--Gamma model, its parameters correspond to approximately three prior claims across 40 policy-years of information. Using the entire reference sample as an extremely concentrated prior would give the 200 analysis observations little influence on the posterior. The choice of prior strength is a modelling judgment, not something uniquely determined by the data.
+
+With $n=200$ and $\sum_{i=1}^{n}x_i=20$, the conjugate update gives
+\[
+\theta\mid x_{1:n}\sim\operatorname{Gamma}(3+20,40+200)
+=\operatorname{Gamma}(23,240),
+\]
+so the analytical posterior mean is
+\[
+\boxed{\mathbb{E}[\theta\mid x_{1:n}]=\frac{23}{240}
+=0.0958333.}
+\]
+The reference and analysis samples do not overlap, although both come from the same insurance portfolio. The prior should therefore be understood as \emph{data-informed}, not as a prior based on an independent historical insurance market.
+
+\section*{Question 5(b): Importance sampling in R}
+
+Following Question 5(a), we draw $M=10{,}000$ independent values $\theta^{(m)}$ from the prior $\operatorname{Gamma}(3,40)$. Since the proposal distribution is the prior, the unnormalized importance weights are proportional to the Poisson likelihood:
+\[
+\widetilde w_m\propto p(x_{1:n}\mid\theta^{(m)})
+\propto\bigl(\theta^{(m)}\bigr)^{\sum_i x_i}
+\exp\!\left(-n\theta^{(m)}\right).
+\]
+For numerical stability, the implementation evaluates log weights $\ell_m=20\log\theta^{(m)}-200\theta^{(m)}$, subtracts the maximum log weight before exponentiating, and normalizes the weights so that $\sum_m w_m=1$. The self-normalized estimate is then
+\[
+\widehat{\mathbb{E}[\theta\mid x_{1:n}]}_{\mathrm{IS}}
+=\sum_{m=1}^{10{,}000}w_m\theta^{(m)}.
+\]
+
+\begin{table}[ht]
+\centering
+\caption{Importance-sampling results ($M=10{,}000$, random seed 2026)}
+\begin{tabular}{lr}
+\toprule
+Statistic & Value \\
+\midrule
+Importance-sampling posterior mean & 0.09613397 \\
+Analytical posterior mean & 0.09583333 \\
+Absolute difference & 0.00030064 \\
+Relative difference & 0.31\% \\
+Effective sample size (ESS) & 4,360.62 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The simulated estimate is close to the analytical posterior mean: the relative difference is approximately $0.31\%$. The effective sample size, calculated as $\mathrm{ESS}=1/\sum_{m=1}^{M}w_m^2$, is approximately 4,361. This indicates that, although the weights are unequal, the estimate is not driven by only a handful of draws. The numerical results therefore support the accuracy of importance sampling in this example; minor discrepancies from the analytical mean reflect Monte Carlo variability.
+
+\begin{thebibliography}{9}
+\bibitem{CASdatasets}
+CASdatasets. \emph{French Motor Third-Party Liability datasets (freMTPL2freq)}. Dataset documentation. \url{https://dutangc.github.io/CASdatasets/reference/freMTPL.html}.
+\bibitem{HuggingFace}
+Mabilton. \emph{freMTPL2freq.csv}, publicly hosted dataset file and documentation. \url{https://huggingface.co/datasets/mabilton/fremtpl2}.
+\end{thebibliography}
+
+\end{document}
